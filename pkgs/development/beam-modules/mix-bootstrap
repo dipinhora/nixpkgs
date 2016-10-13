@@ -33,6 +33,7 @@
 
 main(Args) ->
     {ok, RequiredData} = gather_required_data_from_the_environment(Args),
+    ok = bootstrap_registry(RequiredData),
     ok = bootstrap_libs(RequiredData).
 
 %% @doc
@@ -87,6 +88,30 @@ gather_directory_contents(Path) ->
     lists:map(fun(AppName) ->
                  {filename:join(Path, AppName), fixup_app_name(AppName)}
               end, Names).
+
+-spec bootstrap_registry(#data{}) -> ok.
+bootstrap_registry(#data{registry_snapshot = RegistrySnapshot}) ->
+    io:format("Bootstrapping Hex Registry for Rebar~n"),
+    make_sure_registry_snapshot_exists(RegistrySnapshot),
+    filelib:ensure_dir(?LOCAL_HEX_REGISTRY),
+    ok = case filelib:is_file(?LOCAL_HEX_REGISTRY) of
+             true ->
+                 file:delete(?LOCAL_HEX_REGISTRY);
+             false ->
+                 ok
+         end,
+    ok = file:make_symlink(RegistrySnapshot,
+                           ?LOCAL_HEX_REGISTRY).
+
+-spec make_sure_registry_snapshot_exists(string()) -> ok.
+make_sure_registry_snapshot_exists(RegistrySnapshot) ->
+    case filelib:is_file(RegistrySnapshot) of
+        true ->
+            ok;
+        false ->
+            stderr("Registry snapshot (~s) does not exist!", [RegistrySnapshot]),
+            erlang:halt(1)
+    end.
 
 %% @doc
 %% Makes a symlink from the directory pointed at by Path to a
